@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mathe-Trainer</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🧮 Mathe-Trainer</h1>
+            <p>Übe Addition, Subtraktion, Multiplikation und Division</p>
+        </header>
+
+        <section class="settings">
+            <h2>Aufgaben auswählen</h2>
+            <div class="grade-setting">
+                <label for="gradeSelect">Klasse:</label>
+                <select id="gradeSelect">
+                    <option value="1">Klasse 1</option>
+                    <option value="2">Klasse 2</option>
+                    <option value="3">Klasse 3</option>
+                    <option value="4">Klasse 4</option>
+                    <option value="5">Klasse 5</option>
+                    <option value="6" selected>Klasse 6</option>
+                </select>
+            </div>
+            <div class="operations">
+                <label class="op-toggle">
+                    <input type="checkbox" value="addition">
+                    <span>Addition</span>
+                </label>
+                <label class="op-toggle">
+                    <input type="checkbox" value="subtraction">
+                    <span>Subtraktion</span>
+                </label>
+                <label class="op-toggle">
+                    <input type="checkbox" value="multiplication" checked>
+                    <span>Multiplikation</span>
+                </label>
+                <label class="op-toggle">
+                    <input type="checkbox" value="division">
+                    <span>Division</span>
+                </label>
+            </div>
+
+            <div class="range-setting">
+                <label for="maxNumber">Höchste Zahl:</label>
+                <input type="number" id="maxNumber" value="20" min="5" max="100">
+            </div>
+            <div class="difficulty-setting">
+                <label for="difficultySelect">Schwierigkeit:</label>
+                <select id="difficultySelect">
+                    <option value="leicht" selected>Leicht</option>
+                    <option value="schwer">Schwer (Zahlen 10–20)</option>
+                </select>
+            </div>
+            <div class="start-controls">
+                <button id="startBtn" class="btn-primary">Starten</button>
+            </div>
+        </section>
+
+        <section class="game" id="gameArea" style="display: none;">
+            <div class="scoreboard">
+                <div class="stat">
+                    <span class="stat-label">Richtig</span>
+                    <span class="stat-value" id="correctCount">0</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Falsch</span>
+                    <span class="stat-value" id="wrongCount">0</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Serie</span>
+                    <span class="stat-value" id="streakCount">0</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Highscore</span>
+                    <span class="stat-value" id="highScore">0</span>
+                </div>
+            </div>
+            <div class="timer" id="timerDisplay" style="display:none; font-size:18px; margin-top:8px;">60s</div>
+            <div class="score-controls">
+                <button id="resetHighscoreBtn" class="btn-secondary">Highscore zurücksetzen</button>
+            </div>
+
+            <div class="problem-card">
+                <div class="problem" id="problemText">2 + 2 = ?</div>
+                <form id="answerForm" class="answer-form">
+                    <input type="number" id="answerInput" class="answer-input" placeholder="Antwort" autocomplete="off">
+                    <button type="submit" class="btn-primary">Prüfen</button>
+                </form>
+                <div class="feedback" id="feedback"></div>
+            </div>
+        </section>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+{
+  "name": "mathe-trainer",
+  "version": "1.0.0",
+  "description": "Eine einfache Web-App zum Üben von Grundrechenarten",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": ["mathe", "trainer", "übung"],
+  "author": "",
+  "license": "MIT"
+}

@@ -1,0 +1,49 @@
+/* Basic layout for the geography quiz */
+html,body,#map{
+    height:100%;
+    margin:0;
+}
+body{
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+.geo-header{
+    position: absolute;
+    z-index: 400;
+    left: 16px;
+    top: 10px;
+    background: rgba(255,255,255,0.95);
+    padding: 10px 14px;
+    border-radius: 10px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+}
+.geo-header h1{margin:0;font-size:1.1rem}
+.geo-header p{margin:4px 0 0 0;font-size:0.9rem;color:#333}
+.back-link{display:inline-block;margin-top:6px;color:#2b6cb0;text-decoration:none}
+
+#map{height:100vh;width:100vw}
+
+.hud{
+    position: absolute;
+    z-index: 500;
+    right: 16px;
+    top: 10px;
+    background: rgba(255,255,255,0.97);
+    padding: 12px;
+    border-radius: 10px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.18);
+    max-width: 320px;
+}
+.hud.hidden{display:none}
+.hud-row{margin-bottom:8px;display:flex;gap:8px;align-items:center}
+.hud-row.small{font-size:0.9rem}
+.hud-row.stats{justify-content:space-between;font-weight:600}
+
+#countryInput{flex:1;padding:8px;border-radius:6px;border:1px solid #d1d5db}
+button{padding:8px 10px;border-radius:6px;border:0;background:#2563eb;color:white;cursor:pointer}
+button.secondary{background:#6b7280}
+#feedback{min-width:120px}
+
+@media (max-width:600px){
+    .geo-header{left:8px;right:8px}
+    .hud{left:8px;right:8px;top:auto;bottom:10px}
+}
