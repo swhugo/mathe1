@@ -34,7 +34,7 @@ const elements = {
 const GRADE_CONFIGS = {
     5: {
         maxNumber: 20,
-        operations: ['multiplication'],
+        operations: ['addition', 'subtraction', 'multiplication', 'division'],
         addCap: 20,
         mulCap: 12,
         divCap: 12
@@ -45,6 +45,18 @@ const GRADE_CONFIGS = {
 try {
     const savedHigh = parseInt(localStorage.getItem('mathe_highscore'), 10);
     if (!Number.isNaN(savedHigh)) state.highScore = savedHigh;
+} catch (e) {
+    // ignore storage errors
+}
+
+// Unendlicher Highscore: nur in Browsern, in denen er aktiviert wurde.
+// Aktivieren: Seite einmal mit ?unendlich=1 öffnen, deaktivieren mit ?unendlich=0
+let infiniteHighScore = false;
+try {
+    const param = new URLSearchParams(window.location.search).get('unendlich');
+    if (param === '1') localStorage.setItem('mathe_infinite', '1');
+    if (param === '0') localStorage.removeItem('mathe_infinite');
+    infiniteHighScore = localStorage.getItem('mathe_infinite') === '1';
 } catch (e) {
     // ignore storage errors
 }
@@ -65,7 +77,7 @@ function applyGradeSettings() {
 
     Array.from(elements.operationToggles).forEach(input => {
         const allowed = cfg.operations.includes(input.value);
-        input.checked = allowed;
+        if (!allowed) input.checked = false;
         input.disabled = !allowed;
         const span = input.parentElement.querySelector('span');
         if (span) span.style.opacity = allowed ? '1' : '0.5';
@@ -95,49 +107,48 @@ function generateProblem() {
     state.selectedOperations = ops;
     state.maxNumber = parseInt(elements.maxNumberInput.value, 10) || 20;
     const difficulty = elements.difficultySelect ? elements.difficultySelect.value : 'leicht';
-    const diffMin = difficulty === 'schwer' ? 10 : 1;
-    const diffMax = difficulty === 'schwer' ? 20 : state.maxNumber;
+    const hard = difficulty === 'schwer';
 
     const opKey = ops[getRandomInt(0, ops.length - 1)];
     let a, b, answer, symbol;
 
     switch (opKey) {
-        case 'addition':
-            const cfgAdd = GRADE_CONFIGS[state.grade] || {};
-            const addCap = Math.min(state.maxNumber, cfgAdd.addCap || state.maxNumber);
-            const addMax = difficulty === 'schwer' ? Math.min(diffMax, 20) : addCap;
-            a = getRandomInt(diffMin, addMax);
-            b = getRandomInt(diffMin, addMax);
+        case 'addition': {
+            const max = hard ? 99 : 20;
+            const min = hard ? 10 : 1;
+            a = getRandomInt(min, max);
+            b = getRandomInt(min, max);
             answer = a + b;
             symbol = '+';
             break;
-        case 'subtraction':
-            const cfgSub = GRADE_CONFIGS[state.grade] || {};
-            const subCap = Math.min(state.maxNumber, cfgSub.addCap || state.maxNumber);
-            const subMax = difficulty === 'schwer' ? Math.min(diffMax, 20) : subCap;
-            a = getRandomInt(diffMin, subMax);
-            b = getRandomInt(diffMin === 0 ? 0 : diffMin, a);
+        }
+        case 'subtraction': {
+            const max = hard ? 9999 : 999;
+            const min = hard ? 1000 : 100;
+            a = getRandomInt(min, max);
+            b = getRandomInt(min, a);
             answer = a - b;
             symbol = '-';
             break;
-        case 'multiplication':
-            const cfgMul = GRADE_CONFIGS[state.grade] || {};
-            const mulCap = Math.min(state.maxNumber, cfgMul.mulCap || 12);
-            const mulMax = difficulty === 'schwer' ? Math.min(diffMax, 20) : Math.min(mulCap, 12);
-            a = getRandomInt(diffMin, mulMax);
-            b = getRandomInt(diffMin, mulMax);
+        }
+        case 'multiplication': {
+            const max = hard ? 20 : 12;
+            const min = hard ? 6 : 2;
+            a = getRandomInt(min, max);
+            b = getRandomInt(min, max);
             answer = a * b;
             symbol = '×';
             break;
-        case 'division':
-            const cfgDiv = GRADE_CONFIGS[state.grade] || {};
-            const divCap = Math.min(state.maxNumber, cfgDiv.divCap || 12);
-            const divMax = difficulty === 'schwer' ? Math.min(diffMax, 20) : Math.min(divCap, 12);
-            b = getRandomInt(diffMin, divMax);
-            answer = getRandomInt(diffMin, divMax);
+        }
+        case 'division': {
+            const max = hard ? 25 : Math.min(Math.max(state.maxNumber, 12), 20);
+            const min = hard ? 6 : 2;
+            b = getRandomInt(min, max);
+            answer = getRandomInt(min, max);
             a = b * answer;
             symbol = '÷';
             break;
+        }
     }
 
     state.currentAnswer = answer;
@@ -156,7 +167,7 @@ function updateScoreboard() {
     elements.correctCount.textContent = state.correct;
     elements.wrongCount.textContent = state.wrong;
     elements.streakCount.textContent = state.streak;
-    elements.highScore.textContent = state.highScore || 0;
+    elements.highScore.textContent = infiniteHighScore ? '∞' : (state.highScore || 0);
 }
 
 function checkAnswer(event) {
@@ -287,16 +298,7 @@ if (elements.gradeSelect) {
         // ignore if DOM structure differs
     }
     applyGradeSettings();
-    // lock operations to multiplication only
-    if (elements.operationToggles) {
-        Array.from(elements.operationToggles).forEach(input => {
-            input.checked = input.value === 'multiplication';
-            input.disabled = true;
-            const span = input.parentElement.querySelector('span');
-            if (span) span.style.opacity = input.checked ? '1' : '0.5';
-        });
-    }
-    showFeedback('Klasse 5 voreingestellt — nur Multiplikation.', 'info');
+    showFeedback('Wähle deine Rechenarten und starte.', 'info');
 }
 
 // Reset highscore handler
@@ -310,7 +312,7 @@ if (elements.resetHighscoreBtn) {
             // ignore
         }
         state.highScore = 0;
-        if (elements.highScore) elements.highScore.textContent = '0';
+        updateScoreboard();
         showFeedback('Highscore wurde zurückgesetzt.', 'info');
         // kurz anzeigen und dann ausblenden (Toast-Verhalten)
         setTimeout(() => {
