@@ -1,3 +1,134 @@
+(function () {
+'use strict';
+
+// --- Manipulationsschutz für den Highscore ---
+// Der Wert wird zusammen mit einer Prüfsumme gespeichert. Wer ihn im Browser
+// (Untersuchen > Anwendung > Local Storage) ändert, macht die Prüfsumme ungültig.
+const HS_KEY = 'mathe_highscore';
+const HS_SALT = 'm4th3-s4lz-7Qx!';
+
+function checksum(text) {
+    // cyrb53-Hash
+    let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+    for (let i = 0; i < text.length; i++) {
+        const ch = text.charCodeAt(i);
+        h1 = Math.imul(h1 ^ ch, 2654435761);
+        h2 = Math.imul(h2 ^ ch, 1597334677);
+    }
+    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+    h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+    return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
+}
+
+function sign(value) {
+    return value + '.' + checksum(HS_SALT + value + HS_SALT);
+}
+
+function unsign(stored) {
+    if (typeof stored !== 'string') return null;
+    const idx = stored.lastIndexOf('.');
+    if (idx < 1) return null;
+    const value = stored.slice(0, idx);
+    return sign(value) === stored ? value : null;
+}
+
+let hacked = false;
+
+// --- Sperre: 1 Woche bei Manipulation ---
+const BAN_KEY = 'mathe_ban';
+const BAN_MS = 7 * 24 * 60 * 60 * 1000;
+let banUntil = 0;
+
+function readCookie() {
+    const m = document.cookie.match(new RegExp('(?:^|; )' + BAN_KEY + '=([^;]*)'));
+    return m ? decodeURIComponent(m[1]) : null;
+}
+
+function writeBan(until) {
+    const signed = sign(String(until));
+    try { localStorage.setItem(BAN_KEY, signed); } catch (e) {}
+    try {
+        document.cookie = BAN_KEY + '=' + encodeURIComponent(signed) +
+            '; expires=' + new Date(until).toUTCString() + '; path=/; SameSite=Lax';
+    } catch (e) {}
+}
+
+// Liefert das Ende der Sperre (ms) oder 0. Ein kaputter Eintrag zählt als neue Manipulation.
+function getBanUntil() {
+    const raws = [];
+    try { raws.push(localStorage.getItem(BAN_KEY)); } catch (e) {}
+    raws.push(readCookie());
+    let until = 0;
+    let broken = false;
+    raws.forEach(raw => {
+        if (raw === null) return;
+        const v = unsign(raw);
+        const n = parseInt(v, 10);
+        if (v === null || Number.isNaN(n)) broken = true;
+        else until = Math.max(until, n);
+    });
+    if (broken) {
+        until = Date.now() + BAN_MS;
+        writeBan(until);
+    } else if (until > Date.now()) {
+        writeBan(until); // fehlende Kopie (localStorage/Cookie) wiederherstellen
+    }
+    return until > Date.now() ? until : 0;
+}
+
+function showBanScreen() {
+    if (document.getElementById('banOverlay')) return;
+    const days = Math.ceil((banUntil - Date.now()) / 86400000);
+    const overlay = document.createElement('div');
+    overlay.id = 'banOverlay';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:#000;color:#fff;' +
+        'display:flex;flex-direction:column;align-items:center;justify-content:center;' +
+        'text-align:center;font-family:sans-serif;';
+    overlay.innerHTML = '<div style="font-size:min(60vh,60vw);line-height:1">💀</div>' +
+        '<div style="font-size:28px;margin-top:20px">Du hast geschummelt!</div>' +
+        '<div style="font-size:18px;margin-top:10px">Gesperrt bis ' +
+        new Date(banUntil).toLocaleString('de-DE') + ' (noch ' + days + ' Tag' + (days === 1 ? '' : 'e') + ')</div>';
+    document.body.appendChild(overlay);
+    if (elements && elements.answerInput) elements.answerInput.disabled = true;
+}
+
+function triggerBan() {
+    banUntil = Date.now() + BAN_MS;
+    writeBan(banUntil);
+    showBanScreen();
+}
+
+// Sperre prüfen; Overlay wiederherstellen, falls es per "Untersuchen" entfernt wurde
+function enforceBan() {
+    if (!banUntil) banUntil = getBanUntil();
+    else if (banUntil <= Date.now()) { banUntil = 0; return; }
+    else getBanUntil();
+    if (banUntil) showBanScreen();
+}
+
+function saveHighScore(score) {
+    try { localStorage.setItem(HS_KEY, sign(String(score))); } catch (e) {}
+}
+
+function loadHighScore() {
+    try {
+        const raw = localStorage.getItem(HS_KEY);
+        if (raw === null) return 0;
+        const value = unsign(raw);
+        const n = parseInt(value, 10);
+        if (value === null || Number.isNaN(n) || n < 0) {
+            // manipuliert -> zurücksetzen, Totenkopf anzeigen
+            localStorage.removeItem(HS_KEY);
+            hacked = true;
+            triggerBan();
+            return 0;
+        }
+        return n;
+    } catch (e) {
+        return 0;
+    }
+}
+
 const state = {
     correct: 0,
     wrong: 0,
@@ -42,21 +173,16 @@ const GRADE_CONFIGS = {
 };
 
 // load saved highscore from localStorage
-try {
-    const savedHigh = parseInt(localStorage.getItem('mathe_highscore'), 10);
-    if (!Number.isNaN(savedHigh)) state.highScore = savedHigh;
-} catch (e) {
-    // ignore storage errors
-}
+state.highScore = loadHighScore();
 
 // Unendlicher Highscore: nur in Browsern, in denen er aktiviert wurde.
 // Aktivieren: Seite einmal mit ?unendlich=1 öffnen, deaktivieren mit ?unendlich=0
 let infiniteHighScore = false;
 try {
     const param = new URLSearchParams(window.location.search).get('unendlich');
-    if (param === '1') localStorage.setItem('mathe_infinite', '1');
+    if (param === '1') localStorage.setItem('mathe_infinite', sign('1'));
     if (param === '0') localStorage.removeItem('mathe_infinite');
-    infiniteHighScore = localStorage.getItem('mathe_infinite') === '1';
+    infiniteHighScore = unsign(localStorage.getItem('mathe_infinite')) === '1';
 } catch (e) {
     // ignore storage errors
 }
@@ -167,8 +293,38 @@ function updateScoreboard() {
     elements.correctCount.textContent = state.correct;
     elements.wrongCount.textContent = state.wrong;
     elements.streakCount.textContent = state.streak;
-    elements.highScore.textContent = infiniteHighScore ? '∞' : (state.highScore || 0);
+    elements.highScore.textContent = expectedHighScoreText();
 }
+
+function expectedHighScoreText() {
+    if (hacked) return '💀';
+    return infiniteHighScore ? '∞' : String(state.highScore || 0);
+}
+
+// Manipulationen im laufenden Betrieb erkennen (Local Storage oder Anzeige geändert)
+function detectTampering() {
+    if (hacked) return;
+    let bad = false;
+    try {
+        const raw = localStorage.getItem(HS_KEY);
+        if (raw !== null) {
+            const v = unsign(raw);
+            if (v === null || parseInt(v, 10) !== state.highScore) bad = true;
+        } else if (state.highScore > 0) {
+            bad = true;
+        }
+    } catch (e) {}
+    if (elements.highScore && elements.highScore.textContent !== expectedHighScoreText()) bad = true;
+    if (bad) {
+        hacked = true;
+        state.highScore = 0;
+        try { localStorage.removeItem(HS_KEY); } catch (e) {}
+        updateScoreboard();
+        triggerBan();
+    }
+}
+setInterval(() => { detectTampering(); enforceBan(); }, 500);
+enforceBan();
 
 function checkAnswer(event) {
     event.preventDefault();
@@ -189,11 +345,7 @@ function checkAnswer(event) {
         // update highscore if needed
         if (state.correct > (state.highScore || 0)) {
             state.highScore = state.correct;
-            try {
-                localStorage.setItem('mathe_highscore', state.highScore);
-            } catch (e) {
-                // ignore storage errors
-            }
+            saveHighScore(state.highScore);
         }
         showFeedback('Richtig! Gut gemacht. 🎉', 'correct');
         setTimeout(generateProblem, 1200);
@@ -271,7 +423,7 @@ function end60Mode() {
     // compare session score to highscore and update if needed
     if (state.correct > (state.highScore || 0)) {
         state.highScore = state.correct;
-        try { localStorage.setItem('mathe_highscore', state.highScore); } catch (e) {}
+        saveHighScore(state.highScore);
     }
     updateScoreboard();
     // prominently show highscore
@@ -323,3 +475,4 @@ if (elements.resetHighscoreBtn) {
 }
 
 updateScoreboard();
+})();
